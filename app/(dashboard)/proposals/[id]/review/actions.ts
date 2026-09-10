@@ -1,0 +1,39 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { hasGapMarker } from "@/lib/generation/sections";
+
+/**
+ * Manual edit path — sets updated_by to the rep's id, which is how the
+ * schema's snapshot_section_version() trigger distinguishes manual_edit
+ * from generation/regeneration in the version history.
+ */
+export async function updateSectionContent(
+  proposalId: string,
+  sectionId: string,
+  content: string,
+): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: current } = await supabase.from("proposal_sections").select("version").eq("id", sectionId).single();
+  if (!current) return { error: "Section not found" };
+
+  const { error } = await supabase
+    .from("proposal_sections")
+    .update({
+      content,
+      has_gap_marker: hasGapMarker(content),
+      version: current.version + 1,
+      updated_by: user.id,
+    })
+    .eq("id", sectionId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/proposals/${proposalId}/review`);
+  return {};
+}
