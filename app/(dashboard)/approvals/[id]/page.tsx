@@ -9,7 +9,7 @@ import { renderProposalHtml } from "@/lib/pdf/renderProposalHtml";
 import { getProposalHistoryFeed, getLatestRejectionEvent } from "@/lib/proposals/history";
 import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 import { ApprovalActions } from "./ApprovalActions";
-import { PreviewDialog } from "./PreviewDialog";
+import { PreviewDialog } from "@/components/PreviewDialog";
 
 const SOURCE_LABELS: Record<string, string> = {
   generation: "generated",
