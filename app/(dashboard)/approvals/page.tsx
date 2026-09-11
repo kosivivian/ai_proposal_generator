@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getClientsByIds } from "@/lib/clients/resolve";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { RealtimeRefresh } from "@/components/RealtimeRefresh";
 
 export default async function ApprovalsPage() {
   const supabase = await createClient();
@@ -23,15 +24,16 @@ export default async function ApprovalsPage() {
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresh tables={["proposals"]} />
       <div>
         <h1 className="text-2xl font-semibold">Approvals</h1>
         <p className="text-sm text-muted-foreground">Proposals awaiting internal sign-off before they can reach a client.</p>
       </div>
 
       {!proposals || proposals.length === 0 ? (
-        <div className="border rounded-lg p-12 text-center text-muted-foreground">Nothing pending approval.</div>
+        <div className="rounded-lg border shadow-sm p-12 text-center text-muted-foreground">Nothing pending approval.</div>
       ) : (
-        <div className="border rounded-lg overflow-x-auto">
+        <div className="rounded-lg border shadow-sm overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

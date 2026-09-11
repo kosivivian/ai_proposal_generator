@@ -148,7 +148,7 @@ export function ImportWizard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {validRows.length > 0 && (
-              <div className="border rounded-lg overflow-x-auto">
+              <div className="rounded-lg border shadow-sm overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -209,7 +209,7 @@ export function ImportWizard() {
             )}
 
             {invalidRows.length > 0 && (
-              <div className="border rounded-lg overflow-x-auto border-destructive/40">
+              <div className="rounded-lg border shadow-sm overflow-x-auto border-destructive/40">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -268,7 +268,7 @@ export function ImportWizard() {
               onChange={(e) => e.target.files?.[0] && uploadZip(e.target.files[0])}
             />
           </div>
-          <Button variant="ghost" nativeButton={false} render={<Link href="/">Skip — I&apos;ll attach files per-proposal</Link>} />
+          <Button variant="ghost" nativeButton={false} render={<Link href="/proposals">Skip — I&apos;ll attach files per-proposal</Link>} />
         </CardContent>
       </Card>
     );
@@ -303,7 +303,7 @@ export function ImportWizard() {
           )
         )}
         <div className="flex gap-2">
-          <Button nativeButton={false} render={<Link href="/">Continue to dashboard</Link>} />
+          <Button nativeButton={false} render={<Link href="/proposals">Continue to proposals</Link>} />
           {zipResult && zipResult.matchedFolders.length === 0 && (
             <Button variant="ghost" onClick={() => setStep("materials")}>
               Try a different zip

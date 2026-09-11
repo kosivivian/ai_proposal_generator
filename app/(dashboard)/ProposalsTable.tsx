@@ -143,7 +143,7 @@ export function ProposalsTable({ proposals, role, fileCountByProposal, gapCountB
         </div>
       )}
 
-      <div className="border rounded-lg overflow-x-auto">
+      <div className="rounded-lg border shadow-sm overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

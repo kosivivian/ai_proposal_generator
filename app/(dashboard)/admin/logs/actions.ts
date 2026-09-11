@@ -17,6 +17,6 @@ export async function resolveError(errorId: string): Promise<{ error?: string }>
   const { error } = await service.from("error_log").update({ resolved: true }).eq("id", errorId);
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/errors");
+  revalidatePath("/admin/logs");
   return {};
 }

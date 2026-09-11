@@ -31,6 +31,7 @@ create table profiles (
   full_name     text not null,
   email         text not null,
   role          user_role not null default 'sales_rep',
+  is_active     boolean not null default true, -- deactivated users are blocked at sign-in, not deleted
   created_at    timestamptz not null default now()
 );
 
@@ -312,12 +313,25 @@ create table proposal_events (
 create index idx_events_proposal_id on proposal_events(proposal_id);
 
 -- Every time proposals.state changes, log it automatically
+-- actor_id comes from auth.uid() — every state-changing code path runs
+-- through the user-session client, not service-role, so this correctly
+-- attributes the transition to whoever triggered it. The rejection-notes
+-- capture only fires on the specific transition where it just changed, so
+-- each rejection cycle keeps its own note (not just the latest, which is
+-- all `proposals.rejection_notes` on its own can hold).
 create function log_state_transition()
 returns trigger as $$
 begin
   if new.state is distinct from old.state then
-    insert into proposal_events (proposal_id, from_state, to_state, note)
-    values (new.id, old.state, new.state, null);
+    insert into proposal_events (proposal_id, from_state, to_state, actor_id, note)
+    values (
+      new.id, old.state, new.state, auth.uid(),
+      case when new.state = 'in_review' and new.rejection_notes is not null
+                and new.rejection_notes is distinct from old.rejection_notes
+           then new.rejection_notes
+           else null
+      end
+    );
   end if;
   return new;
 end;
@@ -505,3 +519,10 @@ create policy "documents_storage_access" on storage.objects for all
       and (p.created_by = auth.uid() or is_approver_or_admin())
     )
   );
+
+
+-- ============================================================================
+-- Realtime (client-side auto-refresh — see lib/hooks/useRealtimeRefresh.ts)
+-- ============================================================================
+alter publication supabase_realtime add table
+  proposals, proposal_materials, proposal_events, error_log, delivery_log;

@@ -45,14 +45,14 @@ export async function POST(req: Request) {
 
     let payload: ResendWebhookPayload;
     try {
-      const verified = new Webhook(secret).verify(rawBody, svixHeaders);
-      if (!verified || typeof verified !== "object") {
-        console.error("[resend webhook] verify() returned a non-object:", verified);
-        return NextResponse.json({ error: "Verification returned no payload" }, { status: 400 });
-      }
-      payload = verified as unknown as ResendWebhookPayload;
+      // This version of the svix SDK's Webhook.verify() only validates and
+      // throws on failure — it does NOT return the parsed payload (its own
+      // type declaration says `undefined`). Parse the raw body ourselves
+      // once verification confirms it's authentic.
+      new Webhook(secret).verify(rawBody, svixHeaders);
+      payload = JSON.parse(rawBody) as ResendWebhookPayload;
     } catch (verifyErr) {
-      console.error("[resend webhook] signature verification threw:", verifyErr);
+      console.error("[resend webhook] signature verification or parsing failed:", verifyErr);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 

@@ -86,3 +86,30 @@ export async function setUserRole(targetUserId: string, role: UserRole): Promise
   revalidatePath("/admin/users");
   return {};
 }
+
+/**
+ * "Deleting" a user is a deactivation, not a hard delete — proposals,
+ * materials, sections, and proposal_events all carry FK references to
+ * profiles that back the audit trail (see lib/proposals/history.ts); a hard
+ * delete would either be blocked by those FKs or silently blank out "who
+ * did this" everywhere. Deactivated users are blocked at sign-in (see
+ * app/(auth)/login/actions.ts) but stay visible in history/logs.
+ */
+export async function setUserActive(targetUserId: string, isActive: boolean): Promise<{ error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  if (user.id === targetUserId) return { error: "You cannot deactivate your own account" };
+
+  const { data: callerProfile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (callerProfile?.role !== "admin") return { error: "Forbidden" };
+
+  const service = createServiceRoleClient();
+  const { error } = await service.from("profiles").update({ is_active: isActive }).eq("id", targetUserId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/users");
+  return {};
+}

@@ -23,7 +23,7 @@ export default async function MaterialsPage({ params }: { params: Promise<{ id: 
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/" className="text-sm text-muted-foreground hover:underline">
+        <Link href="/proposals" className="text-sm text-muted-foreground hover:underline">
           ← Back to dashboard
         </Link>
         <h1 className="text-2xl font-semibold mt-1">{client.company_name || client.client_name}</h1>

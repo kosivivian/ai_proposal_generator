@@ -157,7 +157,7 @@ export function MaterialsManager({ proposalId, initialState, initialMaterials }:
       </Card>
 
       {materials.length > 0 && (
-        <div className="border rounded-lg divide-y">
+        <div className="rounded-lg border shadow-sm divide-y">
           {materials.map((m) => (
             <div key={m.id} className="flex items-center justify-between px-4 py-3 gap-4">
               <div className="min-w-0">

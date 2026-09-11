@@ -44,7 +44,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/" className="text-sm text-muted-foreground hover:underline">
+        <Link href="/proposals" className="text-sm text-muted-foreground hover:underline">
           ← Back to dashboard
         </Link>
         <div className="flex items-center gap-3 mt-1">

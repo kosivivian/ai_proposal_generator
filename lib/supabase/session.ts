@@ -22,5 +22,16 @@ export const getCurrentUserProfile = cache(async (): Promise<{
   if (!user) return { user: null, profile: null };
 
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+
+  // A deactivated account can still hold a valid session cookie (Supabase
+  // auth has no notion of is_active — that's an app-level flag on
+  // profiles), so it's enforced here, on every request, not just at
+  // sign-in: this is the one place every dashboard page's auth check
+  // (layout.tsx's `if (!user) redirect("/login")`) already runs through.
+  if (profile && !profile.is_active) {
+    await supabase.auth.signOut();
+    return { user: null, profile: null };
+  }
+
   return { user, profile };
 });

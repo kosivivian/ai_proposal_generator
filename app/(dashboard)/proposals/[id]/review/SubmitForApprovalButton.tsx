@@ -21,7 +21,7 @@ export function SubmitForApprovalButton({ proposalId, hasGaps }: { proposalId: s
         return;
       }
       toast.success("Submitted for approval");
-      router.push("/");
+      router.push("/proposals");
     } finally {
       setSubmitting(false);
     }
