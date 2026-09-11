@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import { withExternalCall } from "@/lib/errors/withExternalCall";
 import { getAnthropicClient, ANTHROPIC_MODEL } from "@/lib/generation/client";
 import { buildGenerationPrompt, GENERATION_SYSTEM_PROMPT } from "@/lib/generation/prompt";
@@ -17,6 +17,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   try {
     const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
 
     // Compare-and-swap transition — also closes the double-click race.
     const { data: proposal } = await supabase

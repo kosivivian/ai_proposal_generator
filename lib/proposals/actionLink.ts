@@ -2,6 +2,10 @@ import type { ProposalState, UserRole } from "@/lib/types/database";
 
 /** Where the dashboard's contextual action button for a proposal should go. */
 export function proposalActionLink(id: string, state: ProposalState, role: UserRole): { href: string; label: string } {
+  // Admin is view-only for proposals — no create/edit/approve/send actions
+  // anywhere, just the audit trail (history, errors, delivery status).
+  if (role === "admin") return { href: `/proposals/${id}`, label: "View" };
+
   switch (state) {
     case "draft":
     case "materials_ready":
@@ -12,7 +16,7 @@ export function proposalActionLink(id: string, state: ProposalState, role: UserR
     case "in_review":
       return { href: `/proposals/${id}/review`, label: "Review" };
     case "pending_approval":
-      return role === "approver" || role === "admin"
+      return role === "approver"
         ? { href: `/approvals/${id}`, label: "Review & decide" }
         : { href: `/proposals/${id}`, label: "View" };
     case "approved":

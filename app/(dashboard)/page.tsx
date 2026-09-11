@@ -65,13 +65,19 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-2xl font-semibold">Proposals</h1>
           <p className="text-sm text-muted-foreground">
-            {role === "sales_rep" ? "Your proposals" : "All proposals across the team"}
+            {role === "sales_rep"
+              ? "Your proposals"
+              : role === "admin"
+                ? "All proposals across the team (view only)"
+                : "All proposals across the team"}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" nativeButton={false} render={<Link href="/proposals/import">Bulk import</Link>} />
-          <Button nativeButton={false} render={<Link href="/proposals/new">New proposal</Link>} />
-        </div>
+        {role !== "admin" && (
+          <div className="flex gap-2">
+            <Button variant="outline" nativeButton={false} render={<Link href="/proposals/import">Bulk import</Link>} />
+            <Button nativeButton={false} render={<Link href="/proposals/new">New proposal</Link>} />
+          </div>
+        )}
       </div>
 
       {proposals.length === 0 ? (

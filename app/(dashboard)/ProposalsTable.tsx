@@ -90,9 +90,12 @@ export function ProposalsTable({ proposals, role, fileCountByProposal, gapCountB
 
   const groupById = useMemo(() => {
     const map = new Map<string, BulkGroup | null>();
-    for (const p of proposals) map.set(p.id, bulkGroupFor(p, fileCountByProposal[p.id] ?? 0));
+    // Admin is view-only — never offer bulk (or any) proposal actions.
+    if (role !== "admin") {
+      for (const p of proposals) map.set(p.id, bulkGroupFor(p, fileCountByProposal[p.id] ?? 0));
+    }
     return map;
-  }, [proposals, fileCountByProposal]);
+  }, [proposals, fileCountByProposal, role]);
 
   const selectedGroup = selected.size > 0 ? groupById.get([...selected][0]) ?? null : null;
 

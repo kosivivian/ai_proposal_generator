@@ -7,6 +7,7 @@ import { clientSchema } from "@/lib/clients/schema";
 import { computeMissingFields } from "@/lib/intake/requiredFields";
 import { findClientByEmail, createClientRecord } from "@/lib/clients/resolve";
 import { findExactDuplicateProposal } from "@/lib/intake/duplicate";
+import { requireRole, GateError } from "@/lib/proposals/gates";
 import type { Tables } from "@/lib/types/database";
 
 export interface CreateProposalState {
@@ -45,6 +46,13 @@ export async function createProposal(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  try {
+    await requireRole(supabase, user.id, ["sales_rep"]);
+  } catch (err) {
+    if (err instanceof GateError) return { error: "Only sales reps can create proposals" };
+    throw err;
+  }
 
   const parsed = intakeSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {

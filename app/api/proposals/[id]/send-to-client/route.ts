@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import { withExternalCall } from "@/lib/errors/withExternalCall";
 import { renderProposalHtml } from "@/lib/pdf/renderProposalHtml";
 import { exportPdf } from "@/lib/pdf/exportPdf";
@@ -27,7 +27,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const supabase = await createClient();
 
   try {
-    await requireUser(supabase);
+    const currentUser = await requireUser(supabase);
+    await requireRole(supabase, currentUser.id, ["sales_rep"]);
 
     const { data: proposal } = await supabase.from("proposals").select("*").eq("id", id).single();
     if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });

@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   try {
     const user = await requireUser(supabase);
-    await requireRole(supabase, user.id, ["approver", "admin"]);
+    await requireRole(supabase, user.id, ["approver"]);
 
     const { data: updated } = await supabase
       .from("proposals")

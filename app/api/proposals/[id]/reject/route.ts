@@ -8,7 +8,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   try {
     const user = await requireUser(supabase);
-    await requireRole(supabase, user.id, ["approver", "admin"]);
+    await requireRole(supabase, user.id, ["approver"]);
 
     const body = await req.json().catch(() => ({}));
     const notes = typeof body?.notes === "string" ? body.notes.trim() : "";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import { processMaterial } from "@/lib/processing/dispatch";
 
 /**
@@ -16,7 +16,8 @@ export async function POST(
   const supabase = await createClient();
 
   try {
-    await requireUser(supabase);
+    const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
     await processMaterial(supabase, materialId);
     return NextResponse.json({ ok: true });
   } catch (err) {

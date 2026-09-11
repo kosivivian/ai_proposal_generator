@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { hasGapMarker } from "@/lib/generation/sections";
+import { requireRole, GateError } from "@/lib/proposals/gates";
 
 /**
  * Manual edit path — sets updated_by to the rep's id, which is how the
@@ -19,6 +20,13 @@ export async function updateSectionContent(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
+
+  try {
+    await requireRole(supabase, user.id, ["sales_rep"]);
+  } catch (err) {
+    if (err instanceof GateError) return { error: "Only sales reps can edit proposal sections" };
+    throw err;
+  }
 
   const { data: current } = await supabase.from("proposal_sections").select("version").eq("id", sectionId).single();
   if (!current) return { error: "Section not found" };

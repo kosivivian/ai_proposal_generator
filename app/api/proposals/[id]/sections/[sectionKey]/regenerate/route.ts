@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import { withExternalCall } from "@/lib/errors/withExternalCall";
 import { getAnthropicClient, ANTHROPIC_MODEL } from "@/lib/generation/client";
 import { buildRegenerationPrompt, buildRegenerationSystemPrompt } from "@/lib/generation/prompt";
@@ -19,7 +19,8 @@ export async function POST(
   const supabase = await createClient();
 
   try {
-    await requireUser(supabase);
+    const currentUser = await requireUser(supabase);
+    await requireRole(supabase, currentUser.id, ["sales_rep"]);
 
     if (!SECTION_KEYS.includes(sectionKey as SectionKey)) {
       return NextResponse.json({ error: `Unknown section key: ${sectionKey}` }, { status: 400 });

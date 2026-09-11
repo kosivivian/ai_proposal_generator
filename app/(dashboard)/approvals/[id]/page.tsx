@@ -4,11 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SECTION_LABELS, type SectionKey } from "@/lib/generation/sections";
 import { getClientById } from "@/lib/clients/resolve";
+import { getCurrentUserProfile } from "@/lib/supabase/session";
 import { ApprovalActions } from "./ApprovalActions";
 
 export default async function ApprovalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  const { profile } = await getCurrentUserProfile();
 
   const [{ data: proposal, error }, { data: sections }] = await Promise.all([
     supabase.from("proposals").select("*").eq("id", id).single(),
@@ -59,9 +61,15 @@ export default async function ApprovalDetailPage({ params }: { params: Promise<{
         ))}
       </div>
 
-      <div className="pt-2 border-t">
-        <ApprovalActions proposalId={id} />
-      </div>
+      {profile?.role === "approver" ? (
+        <div className="pt-2 border-t">
+          <ApprovalActions proposalId={id} />
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground pt-2 border-t">
+          Viewing only — only approvers can approve or reject.
+        </p>
+      )}
     </div>
   );
 }

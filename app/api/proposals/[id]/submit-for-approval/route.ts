@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 
 /**
  * The hard gate from PRD §6/§8: has_gaps is re-read fresh from the DB here,
@@ -12,7 +12,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const supabase = await createClient();
 
   try {
-    await requireUser(supabase);
+    const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
 
     const { data: proposal } = await supabase
       .from("proposals")

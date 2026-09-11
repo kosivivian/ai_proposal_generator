@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import { parseCsv, validateRows, type ValidRow } from "@/lib/intake/csv";
 import { flagExactDuplicates } from "@/lib/intake/duplicate";
 import { findClientsByEmailsBatch, normalizeEmail } from "@/lib/clients/resolve";
@@ -16,7 +16,8 @@ export async function POST(req: Request) {
   const supabase = await createClient();
 
   try {
-    await requireUser(supabase);
+    const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
 
     const formData = await req.formData();
     const file = formData.get("file");

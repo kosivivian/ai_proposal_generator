@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, GateError } from "@/lib/proposals/gates";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import { attachMaterial } from "@/lib/processing/attachMaterial";
 import type { MaterialType } from "@/lib/types/database";
 
@@ -12,6 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   try {
     const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
 
     const formData = await req.formData();
     const file = formData.get("file");

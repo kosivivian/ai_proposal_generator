@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
 import type { MaterialType } from "@/lib/types/database";
 
 /**
@@ -12,6 +13,14 @@ import type { MaterialType } from "@/lib/types/database";
  */
 export async function advanceIfNoMaterials(proposalId: string): Promise<{ error?: string }> {
   const supabase = await createClient();
+
+  try {
+    const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
+  } catch (err) {
+    if (err instanceof GateError) return { error: err.message };
+    throw err;
+  }
 
   const { count } = await supabase
     .from("proposal_materials")
@@ -39,6 +48,15 @@ export async function advanceIfNoMaterials(proposalId: string): Promise<{ error?
 
 export async function updateMaterialType(materialId: string, materialType: MaterialType): Promise<{ error?: string }> {
   const supabase = await createClient();
+
+  try {
+    const user = await requireUser(supabase);
+    await requireRole(supabase, user.id, ["sales_rep"]);
+  } catch (err) {
+    if (err instanceof GateError) return { error: err.message };
+    throw err;
+  }
+
   const { error } = await supabase.from("proposal_materials").update({ material_type: materialType }).eq("id", materialId);
   return error ? { error: error.message } : {};
 }
