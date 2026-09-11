@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/branding";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Proposal Generator",
-  description: "AI-assisted client proposal drafting, review, and delivery",
+  title: `${BRAND_NAME} — Proposal Generator`,
+  description: BRAND_TAGLINE,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,5 +1,6 @@
 import { getResend } from "@/lib/email/client";
 import { escapeHtml } from "@/lib/email/template";
+import { BRAND_NAME, brandHeaderEmailHtml } from "@/lib/branding";
 
 /**
  * Sent when an admin invites a new user (accounts are no longer
@@ -17,12 +18,13 @@ export async function sendWelcomeEmail(params: {
   const { data, error } = await getResend().emails.send({
     from: process.env.RESEND_FROM_EMAIL!,
     to: params.toEmail,
-    subject: "Your Proposal Generator account",
+    subject: `Your ${BRAND_NAME} account`,
     html: `<!doctype html>
 <html>
 <body style="font-family: Georgia, serif; color: #1a1a1a; line-height: 1.6;">
+  ${brandHeaderEmailHtml()}
   <p>Hi ${escapeHtml(params.fullName)},</p>
-  <p>An account has been created for you on Proposal Generator.</p>
+  <p>An account has been created for you on ${BRAND_NAME}'s proposal workspace.</p>
   <p>
     <strong>Email:</strong> ${escapeHtml(params.toEmail)}<br/>
     <strong>Temporary password:</strong> ${escapeHtml(params.tempPassword)}

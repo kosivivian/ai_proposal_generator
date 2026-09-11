@@ -1,5 +1,6 @@
 import type { Tables } from "@/lib/types/database";
 import type { SectionKey } from "@/lib/generation/sections";
+import { brandHeaderDocumentHtml } from "@/lib/branding";
 
 type ProposalRow = Tables<"proposals">;
 type ClientRow = Tables<"clients">;
@@ -51,6 +52,7 @@ export function renderProposalHtml(
 </style>
 </head>
 <body>
+  ${brandHeaderDocumentHtml()}
   <h1>Proposal for ${escapeHtml(client.company_name || client.client_name)}</h1>
   <div class="meta">
     ${proposal.project_title ? `<div>${escapeHtml(proposal.project_title)}</div>` : ""}

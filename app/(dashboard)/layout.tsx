@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUserProfile } from "@/lib/supabase/session";
 import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/Logo";
 import { signOut } from "./actions";
 import { SidebarNav, type SidebarLink } from "./SidebarNav";
 
@@ -24,8 +25,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen flex">
       <aside className="hidden md:flex w-56 shrink-0 flex-col border-r bg-card">
         <div className="px-5 py-5 border-b">
-          <Link href="/" className="font-semibold tracking-tight">
-            Proposal Generator
+          <Link href="/">
+            <Logo />
           </Link>
         </div>
         <SidebarNav links={links} />
@@ -48,8 +49,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden border-b bg-card">
           <div className="flex items-center justify-between px-4 py-3">
-            <Link href="/" className="font-semibold">
-              Proposal Generator
+            <Link href="/">
+              <Logo size="sm" />
             </Link>
             <form action={signOut}>
               <Button variant="ghost" size="sm" type="submit">Sign out</Button>

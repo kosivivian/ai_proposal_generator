@@ -85,7 +85,19 @@ export function SectionEditor({
         </CardTitle>
         <div className="flex items-center gap-2">
           {!editing && (
-            <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                // section.content may have changed (regenerate, or another
+                // tab) since draft's initial useState() ran at mount — that
+                // useState only seeds once and doesn't track prop updates
+                // across the router.refresh() a regenerate triggers, so
+                // re-sync from the current prop right when editing starts.
+                setDraft(section.content);
+                setEditing(true);
+              }}
+            >
               Edit
             </Button>
           )}

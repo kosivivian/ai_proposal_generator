@@ -1,4 +1,5 @@
 import type { Tables } from "@/lib/types/database";
+import { brandHeaderEmailHtml } from "@/lib/branding";
 
 type ClientRow = Tables<"clients">;
 
@@ -17,13 +18,14 @@ export function buildEmailHtml(client: ClientRow, proposalLink: string, prepared
   return `<!doctype html>
 <html>
 <body style="font-family: Georgia, serif; color: #1a1a1a; line-height: 1.6;">
+  ${brandHeaderEmailHtml()}
   <p>Hi ${escapeHtml(client.client_name)},</p>
   <p>Thanks again for taking the time to speak with us. Based on our conversation, we have put together a customized proposal for your review.</p>
   <p>You can view the proposal here: <a href="${proposalLink}">${proposalLink}</a></p>
   <p>This document outlines the project scope, timeline, pricing details, and recommended approach.</p>
   <p>If you have any questions or would like to make adjustments, feel free to reach out. We are happy to iterate with you.</p>
   <p>Looking forward to hearing your thoughts.</p>
-  <p>Best regards,<br/>${escapeHtml(preparedByName)}</p>
+  <p>Best regards,<br/>${escapeHtml(preparedByName)} from Koya Talent</p>
 </body>
 </html>`;
 }
@@ -36,6 +38,7 @@ export function buildReminderEmailHtml(client: ClientRow, proposalLink: string, 
   return `<!doctype html>
 <html>
 <body style="font-family: Georgia, serif; color: #1a1a1a; line-height: 1.6;">
+  ${brandHeaderEmailHtml()}
   <p>Hi ${escapeHtml(client.client_name)},</p>
   <p>Just following up on the proposal we sent a couple of days ago, in case it got buried in your inbox.</p>
   <p>You can view it here: <a href="${proposalLink}">${proposalLink}</a></p>

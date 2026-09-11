@@ -15,9 +15,9 @@ export function LoginForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Proposal Generator</CardTitle>
+        <CardTitle>Sign in</CardTitle>
         <CardDescription>
-          Sign in to manage client proposals. New accounts are created by an admin — contact yours if you need access.
+          Manage client proposals. New accounts are created by an admin. Contact yours if you need access.
         </CardDescription>
       </CardHeader>
       <CardContent>
