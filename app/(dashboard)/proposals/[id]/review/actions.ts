@@ -28,6 +28,10 @@ export async function updateSectionContent(
     throw err;
   }
 
+  if (content.trim().length === 0) {
+    return { error: "A section can't be saved empty." };
+  }
+
   const { data: current } = await supabase.from("proposal_sections").select("version").eq("id", sectionId).single();
   if (!current) return { error: "Section not found" };
 

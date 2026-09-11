@@ -39,7 +39,10 @@ export function SectionEditor({
   const [saving, setSaving] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
+  const isBlank = draft.trim().length === 0;
+
   const save = async () => {
+    if (isBlank) return;
     setSaving(true);
     const result = await updateSectionContent(proposalId, section.id, draft);
     setSaving(false);
@@ -107,8 +110,9 @@ export function SectionEditor({
         {editing ? (
           <div className="space-y-2">
             <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={8} />
+            {isBlank && <p className="text-sm text-destructive">A section can&apos;t be saved empty.</p>}
             <div className="flex gap-2">
-              <Button size="sm" onClick={save} disabled={saving}>
+              <Button size="sm" onClick={save} disabled={saving || isBlank}>
                 {saving ? "Saving..." : "Save"}
               </Button>
               <Button
