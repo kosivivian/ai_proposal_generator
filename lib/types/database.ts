@@ -92,20 +92,51 @@ export interface Database {
         };
         Relationships: [];
       };
+      clients: {
+        Row: {
+          id: string;
+          client_name: string;
+          company_name: string | null;
+          client_contact_email: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_name: string;
+          company_name?: string | null;
+          client_contact_email: string;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_name?: string;
+          company_name?: string | null;
+          client_contact_email?: string;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       proposals: {
         Row: {
           id: string;
           batch_id: string | null;
           created_by: string;
           state: ProposalState;
-          client_name: string;
-          client_contact_name: string | null;
-          client_contact_email: string | null;
+          client_id: string;
+          date_of_call: string | null;
+          client_needs_summary: string | null;
           project_title: string | null;
           project_scope: string | null;
           budget_range: string | null;
           timeline: string | null;
-          industry: string | null;
+          goals_and_objectives: string | null;
+          recommended_services: string | null;
           additional_notes: string | null;
           missing_fields: string[];
           has_gaps: boolean;
@@ -122,6 +153,9 @@ export interface Database {
           document_generated_at: string | null;
           email_sent_at: string | null;
           email_provider_id: string | null;
+          email_opened_at: string | null;
+          email_clicked_at: string | null;
+          reminder_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -130,14 +164,15 @@ export interface Database {
           batch_id?: string | null;
           created_by: string;
           state?: ProposalState;
-          client_name: string;
-          client_contact_name?: string | null;
-          client_contact_email?: string | null;
+          client_id: string;
+          date_of_call?: string | null;
+          client_needs_summary?: string | null;
           project_title?: string | null;
           project_scope?: string | null;
           budget_range?: string | null;
           timeline?: string | null;
-          industry?: string | null;
+          goals_and_objectives?: string | null;
+          recommended_services?: string | null;
           additional_notes?: string | null;
           missing_fields?: string[];
           has_gaps?: boolean;
@@ -154,6 +189,9 @@ export interface Database {
           document_generated_at?: string | null;
           email_sent_at?: string | null;
           email_provider_id?: string | null;
+          email_opened_at?: string | null;
+          email_clicked_at?: string | null;
+          reminder_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -162,14 +200,15 @@ export interface Database {
           batch_id?: string | null;
           created_by?: string;
           state?: ProposalState;
-          client_name?: string;
-          client_contact_name?: string | null;
-          client_contact_email?: string | null;
+          client_id?: string;
+          date_of_call?: string | null;
+          client_needs_summary?: string | null;
           project_title?: string | null;
           project_scope?: string | null;
           budget_range?: string | null;
           timeline?: string | null;
-          industry?: string | null;
+          goals_and_objectives?: string | null;
+          recommended_services?: string | null;
           additional_notes?: string | null;
           missing_fields?: string[];
           has_gaps?: boolean;
@@ -186,6 +225,9 @@ export interface Database {
           document_generated_at?: string | null;
           email_sent_at?: string | null;
           email_provider_id?: string | null;
+          email_opened_at?: string | null;
+          email_clicked_at?: string | null;
+          reminder_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

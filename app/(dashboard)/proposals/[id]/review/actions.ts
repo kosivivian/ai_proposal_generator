@@ -23,6 +23,14 @@ export async function updateSectionContent(
   const { data: current } = await supabase.from("proposal_sections").select("version").eq("id", sectionId).single();
   if (!current) return { error: "Section not found" };
 
+  // Same state gate the regenerate route already enforces — without this,
+  // RLS alone lets the creator edit a section after it's been approved or
+  // sent, since RLS scopes *who* can write, not *when*.
+  const { data: proposal } = await supabase.from("proposals").select("state").eq("id", proposalId).single();
+  if (!proposal || !["generated", "in_review"].includes(proposal.state)) {
+    return { error: "This proposal can no longer be edited." };
+  }
+
   const { error } = await supabase
     .from("proposal_sections")
     .update({

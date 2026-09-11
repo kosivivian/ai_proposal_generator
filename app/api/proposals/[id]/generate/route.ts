@@ -6,6 +6,7 @@ import { getAnthropicClient, ANTHROPIC_MODEL } from "@/lib/generation/client";
 import { buildGenerationPrompt, GENERATION_SYSTEM_PROMPT } from "@/lib/generation/prompt";
 import { parseClaudeSections, missingSectionContent } from "@/lib/generation/parse";
 import { SECTION_KEYS, hasGapMarker } from "@/lib/generation/sections";
+import { getClientById } from "@/lib/clients/resolve";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,6 +31,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: "Proposal is not materials_ready" }, { status: 409 });
     }
 
+    const client = await getClientById(supabase, proposal.client_id);
+    if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
     const { data: materials } = await supabase
       .from("proposal_materials")
       .select("material_type, file_name, processed_content")
@@ -39,7 +43,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const result = await withExternalCall(
       { proposalId: id, step: "generation", onFailureState: "failed" },
       async () => {
-        const prompt = buildGenerationPrompt(proposal, materials ?? []);
+        const prompt = buildGenerationPrompt(proposal, client, materials ?? []);
         const response = await getAnthropicClient().messages.create({
           model: ANTHROPIC_MODEL,
           max_tokens: 16000,

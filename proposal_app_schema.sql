@@ -65,6 +65,36 @@ create table import_batches (
 );
 
 
+-- keep updated_at fresh (shared by clients and proposals below)
+create function set_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
+
+-- ----------------------------------------------------------------------------
+-- Clients (separate entity — a client can have many proposals; email is
+-- the unique identity key used to resolve "does this client already exist"
+-- both on single-form creation and bulk CSV import).
+-- ----------------------------------------------------------------------------
+create table clients (
+  id                   uuid primary key default gen_random_uuid(),
+  client_name          text not null,           -- contact person
+  company_name         text,
+  client_contact_email text not null unique,     -- the identity key
+  created_by           uuid not null references profiles(id),
+  created_at           timestamptz not null default now(),
+  updated_at           timestamptz not null default now()
+);
+
+create trigger trg_clients_updated_at
+  before update on clients
+  for each row execute function set_updated_at();
+
+
 -- ----------------------------------------------------------------------------
 -- 3. Proposals (the core table / state machine)
 -- ----------------------------------------------------------------------------
@@ -88,15 +118,17 @@ create table proposals (
   created_by          uuid not null references profiles(id),
   state               proposal_state not null default 'draft',
 
+  client_id           uuid not null references clients(id),
+
   -- Structured intake fields (mirrors intake-form-fields.md — adjust to match exactly)
-  client_name         text not null,
-  client_contact_name text,
-  client_contact_email text,
+  date_of_call        date,
+  client_needs_summary text,
   project_title       text,
   project_scope       text,
   budget_range        text,
   timeline            text,
-  industry            text,
+  goals_and_objectives text,
+  recommended_services text,
   additional_notes    text,
 
   -- Gap tracking (structural check, run at intake time — see section 4 notes)
@@ -121,6 +153,9 @@ create table proposals (
   document_generated_at timestamptz,
   email_sent_at          timestamptz,
   email_provider_id      text,       -- id returned by Resend/SendGrid etc., for tracing
+  email_opened_at        timestamptz, -- first open, from a Resend webhook
+  email_clicked_at       timestamptz, -- first proposal-link click, from a Resend webhook
+  reminder_sent_at       timestamptz, -- set once the 2-day no-response follow-up has fired
 
   created_at             timestamptz not null default now(),
   updated_at             timestamptz not null default now()
@@ -129,15 +164,7 @@ create table proposals (
 create index idx_proposals_state on proposals(state);
 create index idx_proposals_created_by on proposals(created_by);
 create index idx_proposals_batch_id on proposals(batch_id);
-
--- keep updated_at fresh
-create function set_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+create index idx_proposals_client_id on proposals(client_id);
 
 create trigger trg_proposals_updated_at
   before update on proposals
@@ -188,7 +215,7 @@ begin
 
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
 
 create trigger trg_materials_ready
   after update of status on proposal_materials
@@ -243,7 +270,7 @@ begin
   );
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
 
 create trigger trg_snapshot_section
   after insert or update of content on proposal_sections
@@ -261,7 +288,7 @@ begin
   where p.id = new.proposal_id;
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
 
 create trigger trg_sync_gap_flag
   after insert or update of has_gap_marker on proposal_sections
@@ -294,7 +321,7 @@ begin
   end if;
   return new;
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
 
 create trigger trg_log_state_transition
   after update of state on proposals
@@ -348,6 +375,7 @@ create index idx_delivery_log_proposal_id on delivery_log(proposal_id);
 -- Row Level Security
 -- ============================================================================
 alter table profiles enable row level security;
+alter table clients enable row level security;
 alter table import_batches enable row level security;
 alter table proposals enable row level security;
 alter table proposal_materials enable row level security;
@@ -370,6 +398,14 @@ $$ language sql security definer stable;
 -- but only update their own
 create policy "profiles_select_all" on profiles for select using (true);
 create policy "profiles_update_own" on profiles for update using (id = auth.uid());
+
+-- clients: open read (any rep must be able to find any client to resolve
+-- duplicates across reps — the reason this table exists); insert by the
+-- creating rep; update by the creator or approver/admin. No delete policy.
+create policy "clients_select_all" on clients for select using (true);
+create policy "clients_insert" on clients for insert with check (created_by = auth.uid());
+create policy "clients_update" on clients for update
+  using (created_by = auth.uid() or is_approver_or_admin());
 
 -- import_batches: owner or approver/admin
 create policy "batches_select" on import_batches for select

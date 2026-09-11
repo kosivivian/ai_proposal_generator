@@ -22,7 +22,18 @@ export async function advanceIfNoMaterials(proposalId: string): Promise<{ error?
     return { error: "This proposal has attached files — wait for them to finish processing instead." };
   }
 
-  await supabase.from("proposals").update({ state: "materials_ready" }).eq("id", proposalId).eq("state", "draft");
+  const { data, error } = await supabase
+    .from("proposals")
+    .update({ state: "materials_ready" })
+    .eq("id", proposalId)
+    .eq("state", "draft")
+    .select()
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!data) {
+    return { error: "Couldn't update this proposal — it may no longer be in draft state. Refresh and try again." };
+  }
   return {};
 }
 

@@ -2,6 +2,7 @@ import type { Tables } from "@/lib/types/database";
 import type { SectionKey } from "@/lib/generation/sections";
 
 type ProposalRow = Tables<"proposals">;
+type ClientRow = Tables<"clients">;
 type SectionRow = Pick<Tables<"proposal_sections">, "section_key" | "order_index" | "content">;
 
 function escapeHtml(input: string): string {
@@ -27,6 +28,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { year: "numeric", month
  */
 export function renderProposalHtml(
   proposal: ProposalRow,
+  client: ClientRow,
   sections: SectionRow[],
   preparedByName: string,
 ): string {
@@ -49,7 +51,7 @@ export function renderProposalHtml(
 </style>
 </head>
 <body>
-  <h1>Proposal for ${escapeHtml(proposal.client_name)}</h1>
+  <h1>Proposal for ${escapeHtml(client.company_name || client.client_name)}</h1>
   <div class="meta">
     ${proposal.project_title ? `<div>${escapeHtml(proposal.project_title)}</div>` : ""}
     <div>Prepared by ${escapeHtml(preparedByName)}</div>

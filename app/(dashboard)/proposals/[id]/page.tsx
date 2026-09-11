@@ -4,20 +4,29 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ProposalStateBadge } from "@/components/proposal-state-badge";
+import { SECTION_LABELS, type SectionKey } from "@/lib/generation/sections";
+import { getClientById } from "@/lib/clients/resolve";
 import { SendToClientButton } from "./SendToClientButton";
 
 export default async function ProposalDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: proposal } = await supabase.from("proposals").select("*").eq("id", id).single();
+  // None of these depend on each other (events/errors/deliveries/sections
+  // only need `id` from the route params) — fetch all five in parallel.
+  const [{ data: proposal, error }, { data: events }, { data: errors }, { data: deliveries }, { data: sections }] =
+    await Promise.all([
+      supabase.from("proposals").select("*").eq("id", id).single(),
+      supabase.from("proposal_events").select("*").eq("proposal_id", id).order("created_at", { ascending: false }),
+      supabase.from("error_log").select("*").eq("proposal_id", id).eq("resolved", false).order("created_at", { ascending: false }),
+      supabase.from("delivery_log").select("*").eq("proposal_id", id).order("attempted_at", { ascending: false }),
+      supabase.from("proposal_sections").select("*").eq("proposal_id", id).order("order_index"),
+    ]);
+  if (error) console.error(`[ProposalDetailPage] proposals select failed for ${id}:`, error);
   if (!proposal) notFound();
 
-  const [{ data: events }, { data: errors }, { data: deliveries }] = await Promise.all([
-    supabase.from("proposal_events").select("*").eq("proposal_id", id).order("created_at", { ascending: false }),
-    supabase.from("error_log").select("*").eq("proposal_id", id).eq("resolved", false).order("created_at", { ascending: false }),
-    supabase.from("delivery_log").select("*").eq("proposal_id", id).order("attempted_at", { ascending: false }),
-  ]);
+  const client = await getClientById(supabase, proposal.client_id);
+  if (!client) notFound();
 
   const actorIds = [...new Set((events ?? []).map((e) => e.actor_id).filter((v): v is string => !!v))];
   const { data: actors } = actorIds.length
@@ -34,7 +43,7 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
           ← Back to dashboard
         </Link>
         <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-semibold">{proposal.client_name}</h1>
+          <h1 className="text-2xl font-semibold">{client.company_name || client.client_name}</h1>
           <ProposalStateBadge state={proposal.state} />
         </div>
         {proposal.project_title && <p className="text-sm text-muted-foreground">{proposal.project_title}</p>}
@@ -62,6 +71,21 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
         </div>
       )}
 
+      {sections && sections.length > 0 && (
+        <div className="space-y-4">
+          {sections.map((section) => (
+            <Card key={section.id}>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {SECTION_LABELS[section.section_key as SectionKey] ?? section.section_key}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm whitespace-pre-wrap leading-relaxed">{section.content}</CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {proposal.document_url && (
         <Card>
           <CardHeader>
@@ -69,7 +93,20 @@ export default async function ProposalDetailPage({ params }: { params: Promise<{
           </CardHeader>
           <CardContent className="text-sm space-y-1">
             <div>Document generated {proposal.document_generated_at && new Date(proposal.document_generated_at).toLocaleString()}</div>
-            {proposal.email_sent_at && <div>Emailed to {proposal.client_contact_email} at {new Date(proposal.email_sent_at).toLocaleString()}</div>}
+            {proposal.email_sent_at && <div>Emailed to {client.client_contact_email} at {new Date(proposal.email_sent_at).toLocaleString()}</div>}
+            {proposal.email_opened_at ? (
+              <div className="text-emerald-600">Opened {new Date(proposal.email_opened_at).toLocaleString()}</div>
+            ) : proposal.email_sent_at ? (
+              <div className="text-muted-foreground">Not yet opened</div>
+            ) : null}
+            {proposal.email_clicked_at && (
+              <div className="text-emerald-600">Clicked the proposal link {new Date(proposal.email_clicked_at).toLocaleString()}</div>
+            )}
+            {proposal.reminder_sent_at && (
+              <div className="text-amber-700 dark:text-amber-400">
+                Follow-up reminder sent {new Date(proposal.reminder_sent_at).toLocaleString()}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

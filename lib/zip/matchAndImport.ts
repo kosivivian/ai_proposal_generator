@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Tables } from "@/lib/types/database";
 import { attachMaterial } from "@/lib/processing/attachMaterial";
 import { processMaterial } from "@/lib/processing/dispatch";
+import { getClientsByIds } from "@/lib/clients/resolve";
 
 function slugify(input: string): string {
   return input
@@ -15,16 +16,22 @@ function slugify(input: string): string {
 /**
  * Computes a deterministic match key per proposal since the schema has no
  * dedicated column for this (build-plan finding #6): the slugified
- * client_name, de-duplicated with a numeric suffix in created_at order for
- * same-named clients (e.g. "acme-corp", "acme-corp-2").
+ * company_name (falling back to client_name, the contact person, when no
+ * company name was given), de-duplicated with a numeric suffix in
+ * created_at order for same-named clients (e.g. "acme-corp", "acme-corp-2").
  */
-function computeMatchKeys(proposals: Pick<Tables<"proposals">, "id" | "client_name" | "created_at">[]) {
+function computeMatchKeys(
+  proposals: Pick<Tables<"proposals">, "id" | "client_id" | "created_at">[],
+  clientsById: Map<string, Tables<"clients">>,
+) {
   const sorted = [...proposals].sort((a, b) => a.created_at.localeCompare(b.created_at));
   const counts = new Map<string, number>();
   const keyToProposalId = new Map<string, string>();
 
   for (const p of sorted) {
-    const base = slugify(p.client_name);
+    const client = clientsById.get(p.client_id);
+    if (!client) continue;
+    const base = slugify(client.company_name || client.client_name);
     const count = (counts.get(base) ?? 0) + 1;
     counts.set(base, count);
     const key = count === 1 ? base : `${base}-${count}`;
@@ -59,14 +66,15 @@ export async function matchAndImportZip(
 ): Promise<ZipMatchResult> {
   const { data: proposals } = await supabase
     .from("proposals")
-    .select("id, client_name, created_at")
+    .select("id, client_id, created_at")
     .eq("batch_id", batchId);
 
   if (!proposals || proposals.length === 0) {
     throw new Error("No proposals found for this import batch");
   }
 
-  const matchKeys = computeMatchKeys(proposals);
+  const clientsById = await getClientsByIds(supabase, proposals.map((p) => p.client_id));
+  const matchKeys = computeMatchKeys(proposals, clientsById);
   const byId = new Map(proposals.map((p) => [p.id, p]));
 
   const zip = await JSZip.loadAsync(zipBytes);

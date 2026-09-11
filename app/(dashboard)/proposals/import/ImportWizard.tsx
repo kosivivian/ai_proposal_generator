@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import type { ValidRow, InvalidRow } from "@/lib/intake/csv";
 
 type Step = "upload" | "preflight" | "materials" | "done";
@@ -43,7 +44,13 @@ export function ImportWizard() {
       setSourceFilename(body.source_filename);
       setValidRows(body.validRows);
       setInvalidRows(body.invalidRows);
-      setIncluded(new Set<number>(body.validRows.map((r: ValidRow) => r.rowNumber)));
+      // Exact-duplicate rows are hard-excluded — no checkbox, never
+      // includable — everything else starts checked.
+      setIncluded(
+        new Set<number>(
+          body.validRows.filter((r: ValidRow) => !r.exactDuplicate).map((r: ValidRow) => r.rowNumber),
+        ),
+      );
       setStep("preflight");
     } finally {
       setBusy(false);
@@ -62,7 +69,7 @@ export function ImportWizard() {
   const confirmImport = async () => {
     setBusy(true);
     try {
-      const rows = validRows.filter((r) => included.has(r.rowNumber)).map((r) => r.data);
+      const rows = validRows.filter((r) => included.has(r.rowNumber)).map((r) => ({ ...r.client, ...r.data }));
       const res = await fetch("/api/import-batches/confirm", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,7 +113,7 @@ export function ImportWizard() {
         <CardHeader>
           <CardTitle>1. Upload CSV</CardTitle>
           <CardDescription>
-            Columns: client_name (required), client_contact_name, client_contact_email, project_title, project_scope, budget_range, timeline, industry, additional_notes.
+            Columns: client_name (required), company_name, client_contact_email, date_of_call, client_needs_summary, project_title, project_scope, budget_range, timeline, goals_and_objectives, recommended_services, additional_notes.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -135,7 +142,8 @@ export function ImportWizard() {
           <CardHeader>
             <CardTitle>2. Review rows</CardTitle>
             <CardDescription>
-              {validRows.length} valid row(s), {invalidRows.length} row(s) with errors (excluded automatically). Uncheck any valid row to skip it.
+              {validRows.length} valid row(s), {invalidRows.length} row(s) with errors (excluded automatically). Rows
+              that are an exact duplicate of an existing proposal are excluded with no way to include them.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -146,22 +154,52 @@ export function ImportWizard() {
                     <TableRow>
                       <TableHead className="w-10"></TableHead>
                       <TableHead>Row</TableHead>
-                      <TableHead>Client</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Company</TableHead>
                       <TableHead>Contact email</TableHead>
                       <TableHead>Missing (non-blocking)</TableHead>
+                      <TableHead>Client</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {validRows.map((r) => (
-                      <TableRow key={r.rowNumber}>
+                      <TableRow key={r.rowNumber} className={r.exactDuplicate ? "opacity-60" : undefined}>
                         <TableCell>
-                          <Checkbox checked={included.has(r.rowNumber)} onCheckedChange={() => toggleRow(r.rowNumber)} />
+                          {r.exactDuplicate ? (
+                            <Badge variant="outline" className="bg-red-100 text-red-800 border-transparent dark:bg-red-950 dark:text-red-300">
+                              Excluded
+                            </Badge>
+                          ) : (
+                            <Checkbox checked={included.has(r.rowNumber)} onCheckedChange={() => toggleRow(r.rowNumber)} />
+                          )}
                         </TableCell>
                         <TableCell>{r.rowNumber}</TableCell>
-                        <TableCell>{r.data.client_name}</TableCell>
-                        <TableCell>{r.data.client_contact_email || "—"}</TableCell>
+                        <TableCell>{r.client.client_name}</TableCell>
+                        <TableCell>{r.client.company_name || "—"}</TableCell>
+                        <TableCell>{r.client.client_contact_email}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">
                           {r.missing_fields.length > 0 ? r.missing_fields.join(", ") : "—"}
+                        </TableCell>
+                        <TableCell>
+                          {r.exactDuplicate ? (
+                            <span className="text-xs text-destructive">
+                              Exact duplicate of{" "}
+                              {r.exactDuplicate.type === "existing_proposal"
+                                ? "an existing proposal"
+                                : `row ${r.exactDuplicate.rowNumber}`}
+                            </span>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className={
+                                r.clientStatus?.existed
+                                  ? "bg-blue-100 text-blue-800 border-transparent dark:bg-blue-950 dark:text-blue-300"
+                                  : "bg-muted text-muted-foreground border-transparent"
+                              }
+                            >
+                              {r.clientStatus?.existed ? "Existing client" : "New client"}
+                            </Badge>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -230,7 +268,7 @@ export function ImportWizard() {
               onChange={(e) => e.target.files?.[0] && uploadZip(e.target.files[0])}
             />
           </div>
-          <Button variant="ghost" render={<Link href="/">Skip — I&apos;ll attach files per-proposal</Link>} />
+          <Button variant="ghost" nativeButton={false} render={<Link href="/">Skip — I&apos;ll attach files per-proposal</Link>} />
         </CardContent>
       </Card>
     );
@@ -243,19 +281,35 @@ export function ImportWizard() {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p>Created {confirmResult?.created.length ?? 0} proposal(s).</p>
-        {zipResult && (
-          <>
-            <p>{zipResult.matchedFolders.length} folder(s) matched and attached.</p>
-            {zipResult.unmatchedFolders.length > 0 && (
-              <div className="text-amber-700 dark:text-amber-400">
-                {zipResult.unmatchedFolders.length} folder(s) didn&apos;t match a client and were skipped:{" "}
-                {zipResult.unmatchedFolders.map((f) => f.folder).join(", ")}. Attach these from each proposal&apos;s
-                materials screen.
-              </div>
-            )}
-          </>
+        {zipResult && zipResult.matchedFolders.length === 0 ? (
+          <div className="text-amber-700 dark:text-amber-400">
+            No folders in that zip matched a client from this batch, so no materials were attached. You can continue
+            to the dashboard now and attach files later from each proposal&apos;s materials screen (that&apos;s always
+            available), or go back and double-check the zip&apos;s folder names against the client names/IDs from
+            this import.
+          </div>
+        ) : (
+          zipResult && (
+            <>
+              <p>{zipResult.matchedFolders.length} folder(s) matched and attached.</p>
+              {zipResult.unmatchedFolders.length > 0 && (
+                <div className="text-amber-700 dark:text-amber-400">
+                  {zipResult.unmatchedFolders.length} folder(s) didn&apos;t match a client and were skipped:{" "}
+                  {zipResult.unmatchedFolders.map((f) => f.folder).join(", ")}. You can continue and attach these
+                  later from each proposal&apos;s materials screen.
+                </div>
+              )}
+            </>
+          )
         )}
-        <Button render={<Link href="/">Go to dashboard</Link>} />
+        <div className="flex gap-2">
+          <Button nativeButton={false} render={<Link href="/">Continue to dashboard</Link>} />
+          {zipResult && zipResult.matchedFolders.length === 0 && (
+            <Button variant="ghost" onClick={() => setStep("materials")}>
+              Try a different zip
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

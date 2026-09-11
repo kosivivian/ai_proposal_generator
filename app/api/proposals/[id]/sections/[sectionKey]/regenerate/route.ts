@@ -6,6 +6,7 @@ import { getAnthropicClient, ANTHROPIC_MODEL } from "@/lib/generation/client";
 import { buildRegenerationPrompt, buildRegenerationSystemPrompt } from "@/lib/generation/prompt";
 import { parseClaudeSections } from "@/lib/generation/parse";
 import { SECTION_KEYS, hasGapMarker, type SectionKey } from "@/lib/generation/sections";
+import { getClientById } from "@/lib/clients/resolve";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -33,6 +34,9 @@ export async function POST(
       return NextResponse.json({ error: "Proposal is not in a regenerable state" }, { status: 409 });
     }
 
+    const client = await getClientById(supabase, proposal.client_id);
+    if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
+
     const { data: currentSection } = await supabase
       .from("proposal_sections")
       .select("*")
@@ -55,7 +59,7 @@ export async function POST(
     // No onFailureState — a failed regen attempt shouldn't fail the whole
     // proposal; it stays in_review with the error visible on the detail page.
     const result = await withExternalCall({ proposalId: id, step: "regeneration" }, async () => {
-      const prompt = buildRegenerationPrompt(key, proposal, materials ?? [], allSections ?? [], repNote);
+      const prompt = buildRegenerationPrompt(key, proposal, client, materials ?? [], allSections ?? [], repNote);
       const response = await getAnthropicClient().messages.create({
         model: ANTHROPIC_MODEL,
         max_tokens: 4000,

@@ -1,11 +1,18 @@
 import Papa from "papaparse";
 import { intakeSchema, type IntakeInput } from "@/lib/intake/schema";
+import { clientSchema, type ClientInput } from "@/lib/clients/schema";
 import { computeMissingFields } from "@/lib/intake/requiredFields";
+import type { ExactDuplicateFlag } from "@/lib/intake/duplicate";
 
 export interface ValidRow {
   rowNumber: number;
+  client: ClientInput;
   data: IntakeInput;
   missing_fields: string[];
+  /** Populated by client-resolution in the preflight route — informational, not a warning. */
+  clientStatus?: { existed: boolean; clientName: string; companyName: string | null };
+  /** Populated by flagExactDuplicates() in the preflight route — excluded, no override. */
+  exactDuplicate?: ExactDuplicateFlag;
 }
 
 export interface InvalidRow {
@@ -30,11 +37,11 @@ export function parseCsv(csvText: string): Record<string, unknown>[] {
 }
 
 /**
- * Validates parsed CSV rows against the same intake schema used by the
- * single-form path (PRD: "Required-field validation happens at this
- * structural level — do not let a row silently become a draft proposal with
- * required fields blank"). Shared by both preflight (first pass) and
- * confirm (re-validation of a possibly-tampered round-tripped payload).
+ * Validates parsed CSV rows against the client schema (client_name,
+ * company_name, client_contact_email) and the proposal-specific intake
+ * schema, both re-used from the single-form path. Shared by both preflight
+ * (first pass) and confirm (re-validation of a possibly-tampered
+ * round-tripped payload).
  */
 export function validateRows(rows: Record<string, unknown>[]): PreflightResult {
   const validRows: ValidRow[] = [];
@@ -42,19 +49,23 @@ export function validateRows(rows: Record<string, unknown>[]): PreflightResult {
 
   rows.forEach((raw, index) => {
     const rowNumber = index + 2; // +1 for header row, +1 for 1-indexing
-    const parsed = intakeSchema.safeParse(raw);
-    if (!parsed.success) {
-      invalidRows.push({
-        rowNumber,
-        raw,
-        reasons: parsed.error.issues.map((i) => `${i.path.join(".") || "row"}: ${i.message}`),
-      });
+    const client = clientSchema.safeParse(raw);
+    const data = intakeSchema.safeParse(raw);
+
+    if (!client.success || !data.success) {
+      const reasons = [
+        ...(client.success ? [] : client.error.issues.map((i) => `${i.path.join(".") || "row"}: ${i.message}`)),
+        ...(data.success ? [] : data.error.issues.map((i) => `${i.path.join(".") || "row"}: ${i.message}`)),
+      ];
+      invalidRows.push({ rowNumber, raw, reasons });
       return;
     }
+
     validRows.push({
       rowNumber,
-      data: parsed.data,
-      missing_fields: computeMissingFields(parsed.data),
+      client: client.data,
+      data: data.data,
+      missing_fields: computeMissingFields(data.data),
     });
   });
 

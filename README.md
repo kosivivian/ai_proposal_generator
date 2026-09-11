@@ -10,23 +10,27 @@ AI-assisted client proposal drafting, review, internal approval, and delivery. S
    - `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`) — proposal generation/regeneration.
    - `OPENAI_API_KEY` — Whisper transcription of call recordings.
    - `RESEND_API_KEY`, `RESEND_FROM_EMAIL` — client email delivery. `RESEND_FROM_EMAIL` must be a verified sender/domain in your Resend account.
+   - `RESEND_WEBHOOK_SECRET` — Resend dashboard → Webhooks → point an endpoint at `/api/webhooks/resend` (enable the `email.opened` and `email.clicked` events) → copy its signing secret here.
+   - `CRON_SECRET` — any random string; also set it as an env var on the Vercel project itself. Vercel automatically sends it as `Authorization: Bearer <value>` when it triggers the cron job defined in `vercel.json`.
    - `NEXT_PUBLIC_APP_URL` — base URL of this app (`http://localhost:3000` locally).
 3. **Install and run:**
    ```
    npm install
    npm run dev
    ```
-4. **Create your first account** at `/login` → "Create account". New accounts start as `sales_rep`. To promote yourself to `admin` (needed to use the Users page and grant other roles), run this once in the Supabase SQL editor:
+4. **Create your first admin.** Accounts are no longer self-service — there's no signup form. Create your own account directly in the Supabase dashboard (Authentication → Users → Add user), which fires the same trigger the app's invite flow uses, then promote yourself once in the SQL editor:
    ```sql
    update profiles set role = 'admin' where email = 'you@example.com';
    ```
-   After that, role changes for everyone else can be made from `/admin/users` in the app.
+   From then on, every other account is created from `/admin/users` → "Invite a user" — it emails the new person a temporary password (which they should change at `/account` after signing in).
 
 ## Notes on the build
 
 - The Supabase database types in `lib/types/database.ts` are hand-written to mirror `proposal_app_schema.sql` exactly (no `supabase gen types` access in the environment this was built in). If the schema changes, update this file to match.
 - PDF export (`lib/pdf/exportPdf.ts`) uses `puppeteer-core` + `@sparticuz/chromium` for serverless-compatible Chromium. This is the highest infra-risk piece of the stack (cold-start size, memory ceiling on lower Vercel tiers) — if it proves unreliable in production, `@react-pdf/renderer` is a documented fallback that avoids the native-binary dependency entirely.
 - See the six "load-bearing findings" documented across `lib/proposals/gates.ts`, the `approve`/`reject` routes, and `lib/zip/matchAndImport.ts` for places where the PRD and schema needed reconciling in app code rather than schema changes (e.g. RLS alone does not stop a sales rep from approving their own proposal — the explicit role check in the approve/reject routes is what actually enforces that).
+- **The 2-day reminder cron will not fire on its own in local dev.** `vercel.json` schedules `/api/cron/send-reminders` to run daily, but Vercel Cron only actually triggers once this is deployed to Vercel with that config picked up (and Vercel's free/Hobby tier caps cron jobs at once per day — the schedule is already set to once daily for that reason). To test the logic locally, hit the route directly: `curl -X GET http://localhost:3000/api/cron/send-reminders -H "Authorization: Bearer $CRON_SECRET"`.
+- Engagement tracking (`email_opened_at`/`email_clicked_at`) depends on Resend's open/click tracking being enabled for your sending domain, and on the recipient's mail client actually loading tracking pixels/rewriting links (some corporate mail filters strip both) — treat it as a helpful signal, not a guarantee.
 
 ## Testing the core flow end-to-end
 

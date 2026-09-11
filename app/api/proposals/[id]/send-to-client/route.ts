@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service";
 import { requireUser, GateError } from "@/lib/proposals/gates";
 import { withExternalCall } from "@/lib/errors/withExternalCall";
 import { renderProposalHtml } from "@/lib/pdf/renderProposalHtml";
 import { exportPdf } from "@/lib/pdf/exportPdf";
 import { sendProposalEmail } from "@/lib/email/sendProposalEmail";
+import { getClientById } from "@/lib/clients/resolve";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -29,6 +31,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     const { data: proposal } = await supabase.from("proposals").select("*").eq("id", id).single();
     if (!proposal) return NextResponse.json({ error: "Proposal not found" }, { status: 404 });
+
+    const client = await getClientById(supabase, proposal.client_id);
+    if (!client) return NextResponse.json({ error: "Client not found" }, { status: 404 });
 
     const isFreshSend = proposal.state === "approved";
     const isRetry = proposal.state === "failed" && proposal.approved_at !== null;
@@ -56,7 +61,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       const exportResult = await withExternalCall(
         { proposalId: id, step: "document_export", onFailureState: "failed" },
         async () => {
-          const html = renderProposalHtml(proposal, sections ?? [], preparedByName);
+          const html = renderProposalHtml(proposal, client, sections ?? [], preparedByName);
           const pdf = await exportPdf(html);
           const path = `${id}/proposal.pdf`;
           const { error: uploadError } = await supabase.storage
@@ -77,15 +82,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     }
 
     // Step 2 — email delivery, tracked as an independent failure state.
-    if (!proposal.client_contact_email) {
-      const { createServiceRoleClient } = await import("@/lib/supabase/service");
-      await createServiceRoleClient()
-        .from("error_log")
-        .insert({ proposal_id: id, step: "email_delivery", message: "No client_contact_email on file" });
-      await supabase.from("proposals").update({ state: "failed" }).eq("id", id);
-      return NextResponse.json({ error: "No client contact email on file", step: "email_delivery" }, { status: 400 });
-    }
-
+    // (No "missing email" branch needed anymore — clients.client_contact_email is NOT NULL.)
     const emailResult = await withExternalCall(
       { proposalId: id, step: "email_delivery", onFailureState: "failed" },
       async () => {
@@ -100,7 +97,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         if (downloadError || !pdfFile) throw new Error(`Could not read exported document: ${downloadError?.message}`);
         const pdfBuffer = Buffer.from(await pdfFile.arrayBuffer());
 
-        return sendProposalEmail(proposal, signed.signedUrl, preparedByName, pdfBuffer);
+        return sendProposalEmail(proposal, client, signed.signedUrl, preparedByName, pdfBuffer);
       },
     );
 
@@ -119,6 +116,14 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // loop immediately. A Resend delivery/bounce webhook is a documented
     // stretch upgrade for stricter sent -> logged confirmation.
     await supabase.from("proposals").update({ state: "logged" }).eq("id", id).eq("state", "sent");
+
+    // Reaching `logged` is definitive proof every step succeeded end-to-end
+    // — resolve any remaining errors for this proposal even if the step
+    // that originally failed (e.g. document_export) didn't run again this
+    // time (it's skipped once document_url is already set), so it would
+    // otherwise never get a chance to self-resolve via withExternalCall.
+    const service = createServiceRoleClient();
+    await service.from("error_log").update({ resolved: true }).eq("proposal_id", id).eq("resolved", false);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

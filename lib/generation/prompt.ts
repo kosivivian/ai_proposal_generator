@@ -2,6 +2,7 @@ import { SECTION_KEYS, SECTION_LABELS, type SectionKey } from "@/lib/generation/
 import type { Tables } from "@/lib/types/database";
 
 type ProposalRow = Tables<"proposals">;
+type ClientRow = Tables<"clients">;
 type MaterialSummary = Pick<Tables<"proposal_materials">, "material_type" | "file_name" | "processed_content">;
 
 export const GENERATION_SYSTEM_PROMPT = `You are drafting a first-draft client proposal for a sales team.
@@ -18,15 +19,18 @@ Content rules:
 - Material tagged "REFERENCE MATERIAL — OLD PROPOSAL" is background context only, not authoritative content for this new proposal — do not copy pricing, scope, or commitments from it directly.
 - Be concise and client-ready; this draft will be reviewed and edited by a human before it ever reaches a client.`;
 
-function formatIntake(proposal: ProposalRow): string {
+function formatIntake(proposal: ProposalRow, client: ClientRow): string {
   const lines = [
-    `Client name: ${proposal.client_name}`,
-    proposal.client_contact_name && `Client contact: ${proposal.client_contact_name}`,
+    `Client contact name: ${client.client_name}`,
+    client.company_name && `Company: ${client.company_name}`,
+    proposal.date_of_call && `Date of call: ${proposal.date_of_call}`,
+    proposal.client_needs_summary && `Summary of client's needs (as given by the rep): ${proposal.client_needs_summary}`,
     proposal.project_title && `Project title: ${proposal.project_title}`,
     proposal.project_scope && `Project scope (as given by the rep): ${proposal.project_scope}`,
+    proposal.goals_and_objectives && `Goals and objectives: ${proposal.goals_and_objectives}`,
+    proposal.recommended_services && `Recommended services/deliverables (as given by the rep): ${proposal.recommended_services}`,
     proposal.budget_range && `Budget range: ${proposal.budget_range}`,
     proposal.timeline && `Desired timeline: ${proposal.timeline}`,
-    proposal.industry && `Industry: ${proposal.industry}`,
     proposal.additional_notes && `Additional notes: ${proposal.additional_notes}`,
   ].filter(Boolean);
 
@@ -57,10 +61,10 @@ function formatMaterials(materials: MaterialSummary[]): string {
     .join("\n\n");
 }
 
-export function buildGenerationPrompt(proposal: ProposalRow, materials: MaterialSummary[]): string {
+export function buildGenerationPrompt(proposal: ProposalRow, client: ClientRow, materials: MaterialSummary[]): string {
   return [
     "## Structured intake",
-    formatIntake(proposal),
+    formatIntake(proposal, client),
     "",
     "## Supporting materials",
     formatMaterials(materials),
@@ -82,6 +86,7 @@ Content rules:
 export function buildRegenerationPrompt(
   sectionKey: SectionKey,
   proposal: ProposalRow,
+  client: ClientRow,
   materials: MaterialSummary[],
   otherSections: { section_key: string; content: string }[],
   repNote?: string,
@@ -93,7 +98,7 @@ export function buildRegenerationPrompt(
 
   return [
     "## Structured intake",
-    formatIntake(proposal),
+    formatIntake(proposal, client),
     "",
     "## Supporting materials",
     formatMaterials(materials),

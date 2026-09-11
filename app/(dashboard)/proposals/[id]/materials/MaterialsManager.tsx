@@ -121,6 +121,7 @@ export function MaterialsManager({ proposalId, initialState, initialMaterials }:
     startTransition(async () => {
       const result = await advanceIfNoMaterials(proposalId);
       if (result.error) toast.error(result.error);
+      else toast.success("Ready to generate");
       router.refresh();
     });
   };

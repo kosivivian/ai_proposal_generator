@@ -1,17 +1,12 @@
-import { Resend } from "resend";
 import { createServiceRoleClient } from "@/lib/supabase/service";
 import { buildEmailHtml, buildEmailSubject } from "@/lib/email/template";
+import { getResend } from "@/lib/email/client";
 import type { Json, Tables } from "@/lib/types/database";
 
 type ProposalRow = Tables<"proposals">;
+type ClientRow = Tables<"clients">;
 
 const MAX_ATTACHMENT_BYTES = 8_000_000;
-
-let resendClient: Resend | null = null;
-function getResend(): Resend {
-  if (!resendClient) resendClient = new Resend(process.env.RESEND_API_KEY);
-  return resendClient;
-}
 
 /**
  * Sends the client-facing proposal email and records the attempt in
@@ -21,20 +16,17 @@ function getResend(): Resend {
  */
 export async function sendProposalEmail(
   proposal: ProposalRow,
+  client: ClientRow,
   proposalLink: string,
   preparedByName: string,
   pdfBuffer: Buffer,
 ): Promise<{ id: string }> {
-  if (!proposal.client_contact_email) {
-    throw new Error("No client_contact_email on file for this proposal");
-  }
-
   const service = createServiceRoleClient();
   const { data: logRow, error: logError } = await service
     .from("delivery_log")
     .insert({
       proposal_id: proposal.id,
-      recipient_email: proposal.client_contact_email,
+      recipient_email: client.client_contact_email,
       status: "pending",
     })
     .select()
@@ -44,9 +36,9 @@ export async function sendProposalEmail(
   try {
     const { data, error } = await getResend().emails.send({
       from: process.env.RESEND_FROM_EMAIL!,
-      to: proposal.client_contact_email,
-      subject: buildEmailSubject(proposal),
-      html: buildEmailHtml(proposal, proposalLink, preparedByName),
+      to: client.client_contact_email,
+      subject: buildEmailSubject(client),
+      html: buildEmailHtml(client, proposalLink, preparedByName),
       attachments:
         pdfBuffer.byteLength < MAX_ATTACHMENT_BYTES
           ? [{ filename: "proposal.pdf", content: pdfBuffer }]

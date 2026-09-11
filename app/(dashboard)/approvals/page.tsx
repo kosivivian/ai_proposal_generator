@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getClientsByIds } from "@/lib/clients/resolve";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 
@@ -8,7 +9,7 @@ export default async function ApprovalsPage() {
 
   const { data: proposals } = await supabase
     .from("proposals")
-    .select("id, client_name, project_title, submitted_for_approval_at, created_by")
+    .select("id, client_id, project_title, submitted_for_approval_at, created_by")
     .eq("state", "pending_approval")
     .order("submitted_for_approval_at", { ascending: true });
 
@@ -17,6 +18,8 @@ export default async function ApprovalsPage() {
     ? await supabase.from("profiles").select("id, full_name").in("id", createdByIds)
     : { data: [] as { id: string; full_name: string }[] };
   const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+
+  const clientsById = await getClientsByIds(supabase, (proposals ?? []).map((p) => p.client_id));
 
   return (
     <div className="space-y-6">
@@ -39,10 +42,12 @@ export default async function ApprovalsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {proposals.map((p) => (
+              {proposals.map((p) => {
+                const client = clientsById.get(p.client_id);
+                return (
                 <TableRow key={p.id}>
                   <TableCell>
-                    <div className="font-medium">{p.client_name}</div>
+                    <div className="font-medium">{client?.company_name || client?.client_name}</div>
                     {p.project_title && <div className="text-xs text-muted-foreground">{p.project_title}</div>}
                   </TableCell>
                   <TableCell>{nameById.get(p.created_by) ?? "—"}</TableCell>
@@ -50,10 +55,11 @@ export default async function ApprovalsPage() {
                     {p.submitted_for_approval_at ? new Date(p.submitted_for_approval_at).toLocaleString() : "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" render={<Link href={`/approvals/${p.id}`}>Review</Link>} />
+                    <Button size="sm" nativeButton={false} render={<Link href={`/approvals/${p.id}`}>Review</Link>} />
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>
