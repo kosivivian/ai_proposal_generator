@@ -6,6 +6,16 @@ export function proposalActionLink(id: string, state: ProposalState, role: UserR
   // anywhere, just the audit trail (history, errors, delivery status).
   if (role === "admin") return { href: `/proposals/${id}`, label: "View" };
 
+  // Approver's only action anywhere is approve/reject on a pending_approval
+  // proposal — every other state is view-only for them too, otherwise they'd
+  // land on the rep-only Generate/Review/Send-to-client screens (whose
+  // actions are already blocked server-side, but shouldn't be offered at all).
+  if (role === "approver") {
+    return state === "pending_approval"
+      ? { href: `/approvals/${id}`, label: "Review & decide" }
+      : { href: `/proposals/${id}`, label: "View" };
+  }
+
   switch (state) {
     case "draft":
     case "materials_ready":
@@ -16,9 +26,8 @@ export function proposalActionLink(id: string, state: ProposalState, role: UserR
     case "in_review":
       return { href: `/proposals/${id}/review`, label: "Review" };
     case "pending_approval":
-      return role === "approver"
-        ? { href: `/approvals/${id}`, label: "Review & decide" }
-        : { href: `/proposals/${id}`, label: "View" };
+      // role is always sales_rep here — admin/approver are handled above.
+      return { href: `/proposals/${id}`, label: "View" };
     case "approved":
       return { href: `/proposals/${id}`, label: "Send to client" };
     case "rejected":

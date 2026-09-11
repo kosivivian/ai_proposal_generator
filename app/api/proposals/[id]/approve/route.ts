@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser, requireRole, GateError } from "@/lib/proposals/gates";
+import { notifyRepOfDecision } from "@/lib/notifications/proposalNotifications";
 
 /**
  * The real enforcement of the PRD's non-negotiable approval constraint — RLS
@@ -25,6 +26,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       .single();
 
     if (!updated) return NextResponse.json({ error: "Proposal is not pending_approval" }, { status: 409 });
+
+    await notifyRepOfDecision(id, "approved");
     return NextResponse.json({ ok: true });
   } catch (err) {
     if (err instanceof GateError) return NextResponse.json({ error: err.message }, { status: err.status });

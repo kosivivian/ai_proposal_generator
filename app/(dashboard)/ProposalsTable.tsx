@@ -90,8 +90,10 @@ export function ProposalsTable({ proposals, role, fileCountByProposal, gapCountB
 
   const groupById = useMemo(() => {
     const map = new Map<string, BulkGroup | null>();
-    // Admin is view-only — never offer bulk (or any) proposal actions.
-    if (role !== "admin") {
+    // These bulk actions (generate, submit, send, continue-without-files)
+    // are sales_rep-only workflow steps — admin is view-only, and approver's
+    // only action anywhere is approve/reject on the approvals screen.
+    if (role === "sales_rep") {
       for (const p of proposals) map.set(p.id, bulkGroupFor(p, fileCountByProposal[p.id] ?? 0));
     }
     return map;
